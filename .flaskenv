@@ -1,0 +1,2 @@
+FLASK_APP=foundation.py
+FLASK_ENV=development
