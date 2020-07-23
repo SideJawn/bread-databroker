@@ -1,0 +1,1 @@
+These files are working together to communicate between the bouncer APIs and the database we have locked away in some basement. Don't go down there unless you're 21+. I promise there's no secret bar or bowling alley... (Like that one restaurant in Philly)
