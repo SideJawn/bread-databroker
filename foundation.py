@@ -77,6 +77,13 @@ def create_user():
 
     return r
 
+##Gets data necessary for user authorization
+@app.route('/user/<username>', methods=['GET'])
+def get_auth(username = None):
+    query = "MATCH (user:User {username: '" + username + "'}) RETURN user.password, user.salt"
+    r = exe_query(query)
+    return r
+
 def exe_query(query):
     r = {}
     try:
