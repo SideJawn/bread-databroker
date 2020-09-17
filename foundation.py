@@ -31,6 +31,7 @@ def close_db_session(error):
     if hasattr(g, 'neo4j_db'):
         g.neo4j_db.close()
 
+##Returns data for project cards feed
 @app.route('/project', methods=['GET'])
 def get_projects():
     category = request.args.get('category')
@@ -43,6 +44,36 @@ def get_projects():
         r = exe_query(query)
     else:
         r = { 'status_code': 'Number of records are missing' }
+
+    return r
+
+##Creates a new user
+@app.route('/user', methods=['PUT'])
+def create_user():
+    user = request.get_json()['data']
+
+    if user is not None:
+        username = user['username']
+        hashed_pass = user['hashed_pass']
+        salt = user['salt']
+        f_name = user['f_name']
+        l_name = user['l_name']
+        email = user['email']
+        description = user['description']
+        dob = user['dob']
+        city = user['city']
+        province = user['province']
+        avatar = user['avatar']
+        last_logged_in_ts = user['last_logged_in_ts']
+        member_since_ts = user['member_since_ts']
+
+        if username or hashed_pass or salt or f_name or l_name or email or description or dob or city or province or last_logged_in_ts or member_since_ts or avatar is not None:
+            query = "MATCH (place:Place {city: '" + city + "', province_dn: '" + province + "'}) CREATE (user:User {id: apoc.create.uuid(), username: '" + username + "', password: '" + hashed_pass + "', salt: '" + salt + "', f_name: '" + f_name + "', l_name: '" + l_name + "', status: 'A', email: '" + email + "', description: '" + description + "', dob: '"+ dob + "', last_logged_in_ts: '" + last_logged_in_ts +"', member_since_ts: '" + member_since_ts +"'})-[resides:RESIDE_IN]->(place), (user)-[has:HAS_AVATAR]->(avatar:Avatar {id: apoc.create.uuid(), url: '" + avatar + "', display_name: '" + username + "'}) RETURN *"
+            r = exe_query(query)
+        else:
+            r = { 'status_code': 'A parameter is missing' }
+    else:
+        r = { 'status_code': 'Bad request' }
 
     return r
 
@@ -63,10 +94,8 @@ def exe_query(query):
                 else:
                     r = { 'status_code': 'ERR_NOT_FOUND' }
     except neo4j.exceptions.ServiceUnavailable:
-        #close_db_session(err)
         r = { 'status_code': 'ERR_DB_SRVC_UNAVAIL' }
     except neo4j.exceptions.SessionExpired:
-        #close_db_session(err)
         r = { 'status_code': 'ERR_DB_SESSION_UNAVAIL' }
     # except:
     #     if CONFIG['neo4j']['debug_enabled']['default'] == True:
