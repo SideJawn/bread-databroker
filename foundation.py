@@ -80,9 +80,9 @@ def create_user():
     return r
 
 ##Gets data necessary for user authorization
-@app.route('/user/<username>', methods=['GET'])
+@app.route('/creds/<username>', methods=['GET'])
 def get_auth(username = None):
-    query = "MATCH (user:User {username: '" + username + "'}) RETURN user.password, user.salt"
+    query = "MATCH (user:User {username: '" + username + "'}) RETURN user.password as password, user.salt as salt"
     r = exe_query(query)
     return r
 
