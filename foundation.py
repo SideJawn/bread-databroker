@@ -42,12 +42,11 @@ def get_projects():
         else:
             query = "MATCH (project:Project), (user:User)-[:MANAGE]->(project) RETURN project.display_name as display_name, project.status as status, project.created_ts as created_ts, project.description as description, user.f_name as f_name, user.l_name as l_name LIMIT " + num_recs
         r = exe_query(query)
-        num_projects = len(r['results'])
-        r.update({'num_projects': num_projects})
+        response = parse_get(r)
     else:
-        r = { 'status_code': 'Number of records are missing' }
+        response = { 'status_code': 'Number of records are missing' }
 
-    return r
+    return response
 
 ##Creates a new user
 @app.route('/user', methods=['PUT'])
@@ -70,14 +69,15 @@ def create_user():
         member_since_ts = user['member_since_ts']
 
         if username or hashed_pass or salt or f_name or l_name or email or description or dob or city or province or last_logged_in_ts or member_since_ts or avatar is not None:
-            query = "MATCH (place:Place {city: '" + city + "', province_dn: '" + province + "'}) CREATE (user:User {id: apoc.create.uuid(), username: '" + username + "', password: '" + hashed_pass + "', salt: '" + salt + "', f_name: '" + f_name + "', l_name: '" + l_name + "', status: 'A', email: '" + email + "', description: '" + description + "', dob: '"+ dob + "', last_logged_in_ts: '" + last_logged_in_ts +"', member_since_ts: '" + member_since_ts +"'})-[resides:RESIDE_IN]->(place), (user)-[has:HAS_AVATAR]->(avatar:Avatar {id: apoc.create.uuid(), url: '" + avatar + "', display_name: '" + username + "'}) RETURN *"
+            query = "MATCH (place:Place {city: '" + city + "', province_dn: '" + province + "'}) CREATE (user:User {id: apoc.create.uuid(), username: '" + username + "', password: '" + hashed_pass + "', salt: '" + salt + "', f_name: '" + f_name + "', l_name: '" + l_name + "', status: 'A', email: '" + email + "', description: '" + description + "', dob: '"+ dob + "', last_logged_in_ts: '" + last_logged_in_ts +"', member_since_ts: '" + member_since_ts +"'})-[resides:RESIDE_IN]->(place), (user)-[has:HAS_AVATAR]->(avatar:Avatar {id: apoc.create.uuid(), url: '" + avatar + "', display_name: '" + username + "'}) RETURN user"
             r = exe_query(query)
+            response = parse_put(r)
         else:
-            r = { 'status_code': 'A parameter is missing' }
+            response = { 'status_code': 'A parameter is missing' }
     else:
-        r = { 'status_code': 'Bad request' }
+        response = { 'status_code': 'Bad request' }
 
-    return r
+    return response
 
 ##Gets data necessary for user authorization
 @app.route('/creds/<username>', methods=['GET'])
@@ -112,3 +112,13 @@ def exe_query(query):
     #     r = { 'status_code': 'ERR_DB_UNKNOWN'}
 
     return r
+
+def parse_get(r):
+    num_results = len(r['results'])
+    r.update({'num_results': num_results})
+    return r
+
+def parse_put(r):
+    status_code = r['status_code']
+    response = {'status_code': status_code}
+    return response
