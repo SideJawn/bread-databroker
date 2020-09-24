@@ -38,10 +38,12 @@ def get_projects():
     num_recs = request.args.get('num_recs')
     if num_recs is not None:
         if category is not None:
-            query = "MATCH (project:Project)-[:IS_CAT]->(category:Category {display_name: '" + category + "'}), (user:User)-[:MANAGE]->(project) RETURN project.display_name, project.status, project.created_ts, project.description, user.f_name, user.l_name LIMIT " + num_recs
+            query = "MATCH (project:Project)-[:IS_CAT]->(category:Category {display_name: '" + category + "'}), (user:User)-[:MANAGE]->(project) RETURN project.display_name as display_name, project.status as status, project.created_ts as created_ts, project.description as description, user.f_name as f_name, user.l_name as l_name LIMIT " + num_recs
         else:
-            query = "MATCH (project:Project), (user:User)-[:MANAGE]->(project) RETURN project.display_name, project.status, project.created_ts, project.description, user.f_name, user.l_name LIMIT " + num_recs
+            query = "MATCH (project:Project), (user:User)-[:MANAGE]->(project) RETURN project.display_name as display_name, project.status as status, project.created_ts as created_ts, project.description as description, user.f_name as f_name, user.l_name as l_name LIMIT " + num_recs
         r = exe_query(query)
+        num_projects = len(r['results'])
+        r.update({'num_projects': num_projects})
     else:
         r = { 'status_code': 'Number of records are missing' }
 
