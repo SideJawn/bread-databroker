@@ -63,13 +63,16 @@ def create_user():
         description = user['description']
         dob = user['dob']
         city = user['city']
+        zipcode = user['zipcode']
         province = user['province']
         avatar = user['avatar']
         last_logged_in_ts = user['last_logged_in_ts']
         member_since_ts = user['member_since_ts']
 
+        if zipcode is None:
+            zipcode = ''
         if username or hashed_pass or salt or f_name or l_name or email or description or dob or city or province or last_logged_in_ts or member_since_ts or avatar is not None:
-            query = "MATCH (place:Place {city: '" + city + "', province_dn: '" + province + "'}) CREATE (user:User {id: apoc.create.uuid(), username: '" + username + "', password: '" + hashed_pass + "', salt: '" + salt + "', f_name: '" + f_name + "', l_name: '" + l_name + "', status: 'A', email: '" + email + "', description: '" + description + "', dob: '"+ dob + "', last_logged_in_ts: '" + last_logged_in_ts +"', member_since_ts: '" + member_since_ts +"'})-[resides:RESIDE_IN]->(place), (user)-[has:HAS_AVATAR]->(avatar:Avatar {id: apoc.create.uuid(), url: '" + avatar + "', display_name: '" + username + "'}) RETURN user"
+            query = "MATCH (country:Country {display_name: 'United States of America'}) MERGE (place:Place {city: '" + city + "', province_dn: '" + province + "', zipcode: '" + zipcode + "'})-[:LOCATED_IN]->(country) ON CREATE SET place.zipcode = '" + zipcode + "', place.id = apoc.create.uuid() CREATE (user:User {id: apoc.create.uuid(), username: '" + username + "', password: '" + hashed_pass + "', salt: '" + salt + "', f_name: '" + f_name + "', l_name: '" + l_name + "', status: 'A', email: '" + email + "', description: '" + description + "', dob: '"+ dob + "', last_logged_in_ts: '" + last_logged_in_ts +"', member_since_ts: '" + member_since_ts +"'})-[resides:RESIDE_IN]->(place), (user)-[has:HAS_AVATAR]->(avatar:Avatar {id: apoc.create.uuid(), url: '" + avatar + "', display_name: '" + username + "'}) RETURN user"
             r = exe_query(query)
             response = parse_put(r)
         else:
