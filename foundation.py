@@ -36,11 +36,12 @@ def close_db_session(error):
 def get_projects():
     category = request.args.get('category')
     num_recs = request.args.get('num_recs')
+    index = request.args.get('index')
     if num_recs is not None:
         if category is not None:
-            query = "MATCH (project:Project)-[:IS_CAT]->(category:Category {display_name: '" + category + "'}), (user:User)-[:MANAGE]->(project) RETURN project.display_name as display_name, project.status as status, project.created_ts as created_ts, project.description as description, user.f_name as f_name, user.l_name as l_name LIMIT " + num_recs
+            query = "MATCH (project:Project)-[:IS_CAT]->(category:Category {display_name: '" + category + "'}), (user:User)-[:MANAGE]->(project) RETURN project.display_name as display_name, project.status as status, project.created_ts as created_ts, project.description as description, user.f_name as f_name, user.l_name as l_name SKIP " + index + " LIMIT " + num_recs
         else:
-            query = "MATCH (project:Project), (user:User)-[:MANAGE]->(project) RETURN project.display_name as display_name, project.status as status, project.created_ts as created_ts, project.description as description, user.f_name as f_name, user.l_name as l_name LIMIT " + num_recs
+            query = "MATCH (project:Project), (user:User)-[:MANAGE]->(project) RETURN project.display_name as display_name, project.status as status, project.created_ts as created_ts, project.description as description, user.f_name as f_name, user.l_name as l_name SKIP " + index + " LIMIT " + num_recs
         r = exe_query(query)
         response = parse_get(r)
     else:
@@ -105,10 +106,15 @@ def exe_query(query):
                     }
                 else:
                     r = { 'status_code': 'ERR_NOT_FOUND' }
-    except neo4j.exceptions.ServiceUnavailable:
+    except neo4j.exceptions.ServiceUnavailable as err:
+        print(err)
         r = { 'status_code': 'ERR_DB_SRVC_UNAVAIL' }
-    except neo4j.exceptions.SessionExpired:
+    except neo4j.exceptions.SessionExpired as err:
+        print(err)
         r = { 'status_code': 'ERR_DB_SESSION_UNAVAIL' }
+    except neo4j.exceptions.ConstraintError as err:
+        print(err.message)
+        r = { 'status_code': 'ERR_DB_CONSTRAINT_FAIL'}
     # except:
     #     if CONFIG['neo4j']['debug_enabled']['default'] == True:
     #         traceback.print_exc()
