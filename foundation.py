@@ -83,10 +83,17 @@ def create_user():
 
     return response
 
-##Gets data necessary for user authorization
+##Gets data for user authorization
 @app.route('/creds/<username>', methods=['GET'])
 def get_auth(username = None):
     query = "MATCH (user:User {username: '" + username + "'}) RETURN user.password as password, user.salt as salt"
+    r = exe_query(query)
+    return r
+
+##Gets data necessary for the user profile
+@app.route('/user/<user_id>/profile', methods=['GET'])
+def get_user_profile(user_id = None):
+    query = "MATCH (user:User {id: '" + user_id + "'})-[resides:RESIDE_IN]->(place), (user)-[has:HAS_AVATAR]->(avatar:Avatar) RETURN user.username as username, user.f_name as f_name, user.l_name as l_name, user.description as description, user.email as email, user.status as status, place.province_dn as province, avatar.url as avatar"
     r = exe_query(query)
     return r
 
