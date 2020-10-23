@@ -152,6 +152,23 @@ def update_user_profile(user_id = None):
     r = exe_query(query)
     return r
 
+#Change User Status
+@app.route('/user/<user_id>/profile/status', methods=['PUT'])
+def update_user_status(user_id = None):
+    status_json = request.get_json()
+    
+    if user_id is not None:
+        if 'status' in status_json:
+            status = status_json['status']
+            query = "MATCH (user:User {id: '" + user_id + "'}) SET user.status = '" + status + "' RETURN user.status as status"
+            r = exe_query(query)
+        else:
+            r = {'status_code': 'Missing status'}
+    else:
+        r = {'status_code': '400 Bad Request'}
+
+    return r
+
 def exe_query(query):
     r = {}
     try:
