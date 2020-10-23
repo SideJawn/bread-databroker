@@ -52,7 +52,7 @@ def get_projects():
 ##Creates a new user
 @app.route('/user', methods=['PUT'])
 def create_user():
-    user = request.get_json()['data']
+    user = request.get_json()
 
     if user is not None:
         username = user['username']
@@ -100,7 +100,7 @@ def get_user_profile(user_id = None):
 ##Submits data to update the user profile
 @app.route('/user/<user_id>/profile', methods=['PUT'])
 def update_user_profile(user_id = None):
-    user = request.get_json()['data']
+    user = request.get_json()
     profile_data_query = ''
 
     if user_id is not None:
