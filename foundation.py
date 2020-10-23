@@ -73,7 +73,7 @@ def create_user():
         if zipcode is None:
             zipcode = ''
         if username or hashed_pass or salt or f_name or l_name or email or description or dob or city or province or last_logged_in_ts or member_since_ts or avatar is not None:
-            query = "MATCH (country:Country {display_name: 'United States of America'}) MERGE (place:Place {city: '" + city + "', province_dn: '" + province + "', zipcode: '" + zipcode + "'})-[:LOCATED_IN]->(country) ON CREATE SET place.zipcode = '" + zipcode + "', place.id = apoc.create.uuid() CREATE (user:User {id: apoc.create.uuid(), username: '" + username + "', password: '" + hashed_pass + "', salt: '" + salt + "', f_name: '" + f_name + "', l_name: '" + l_name + "', status: 'A', email: '" + email + "', description: '" + description + "', dob: '"+ dob + "', last_logged_in_ts: '" + last_logged_in_ts +"', member_since_ts: '" + member_since_ts +"'})-[resides:RESIDE_IN]->(place), (user)-[has:HAS_AVATAR]->(avatar:Avatar {id: apoc.create.uuid(), url: '" + avatar + "', display_name: '" + username + "'}) RETURN user"
+            query = "MATCH (country:Country {id: '51438616-9ee6-4dd8-bc57-6a65c4e90bdf'}) MERGE (place:Place {city: '" + city + "', province_dn: '" + province + "', zipcode: '" + zipcode + "'})-[:LOCATED_IN]->(country) ON CREATE SET place.zipcode = '" + zipcode + "', place.id = apoc.create.uuid() CREATE (user:User {id: apoc.create.uuid(), username: '" + username + "', password: '" + hashed_pass + "', salt: '" + salt + "', f_name: '" + f_name + "', l_name: '" + l_name + "', status: 'A', email: '" + email + "', description: '" + description + "', dob: '"+ dob + "', last_logged_in_ts: '" + last_logged_in_ts +"', member_since_ts: '" + member_since_ts +"'})-[resides:RESIDE_IN]->(place), (user)-[has:HAS_AVATAR]->(avatar:Avatar {id: apoc.create.uuid(), url: '" + avatar + "', display_name: '" + username + "'}) RETURN user"
             r = exe_query(query)
             response = parse_put(r)
         else:
@@ -94,6 +94,61 @@ def get_auth(username = None):
 @app.route('/user/<user_id>/profile', methods=['GET'])
 def get_user_profile(user_id = None):
     query = "MATCH (user:User {id: '" + user_id + "'})-[resides:RESIDE_IN]->(place), (user)-[has:HAS_AVATAR]->(avatar:Avatar) RETURN user.username as username, user.f_name as f_name, user.l_name as l_name, user.description as description, user.email as email, user.status as status, place.province_dn as province, avatar.url as avatar"
+    r = exe_query(query)
+    return r
+
+##Submits data to update the user profile
+@app.route('/user/<user_id>/profile', methods=['PUT'])
+def update_user_profile(user_id = None):
+    user = request.get_json()['data']
+    profile_data_query = ''
+
+    if user_id is not None:
+        if 'city' in user:
+            city = user['city']
+        if 'province' in user:
+            province = user['province']
+        if 'zipcode' in user:
+            zipcode = user['zipcode']
+
+        query = "MATCH (user:User {id: '" + user_id + "'})-[has:HAS_AVATAR]->(avatar:Avatar), (country:Country {id: '51438616-9ee6-4dd8-bc57-6a65c4e90bdf'}) MERGE (updated_place:Place {city: '" + city + "', province_dn: '" + province + "', zipcode: '" + zipcode + "'})-[located:LOCATED_IN]->(country) ON CREATE SET updated_place.id = apoc.create.uuid() MERGE (user)-[resides:RESIDE_IN]->(updated_place) "
+    else:
+        return { 'status_code': 'Bad request' }
+
+    if 'username' in user:
+        username = user['username']
+        profile_data_query += "user.username = '" + username + "', "
+    if 'hashed_pass' in user:    
+        hashed_pass = user['hashed_pass']
+        profile_data_query += "user.hashed_pass = '" + hashed_pass + "', "
+    if 'salt' in user:
+        salt = user['salt']
+        profile_data_query += "user.salt = '" + salt + "', "
+    if 'f_name' in user:
+        f_name = user['f_name']
+        profile_data_query += "user.f_name = '" + f_name + "', "
+    if 'l_name' in user:
+        l_name = user['l_name']
+        profile_data_query += "user.l_name = '" + l_name + "', "
+    if 'email' in user:
+        email = user['email']
+        profile_data_query += "user.email = '" + email + "', "
+    if 'description' in user:
+        description = user['description']
+        profile_data_query += "user.description = '" + description + "', "
+    if 'dob' in user:
+        dob = user['dob']
+        profile_data_query += "user.dob = '" + dob + "', "
+    if 'avatar' in user:
+        avatar = user['avatar']
+        profile_data_query += "avatar.url = '" + avatar + "' "
+    
+    place_data_query = "WITH user OPTIONAL MATCH (user)-[resides:RESIDE_IN]->(place:Place) WHERE NOT place.zipcode = '" + zipcode + "' DELETE resides "
+
+    query += "ON MATCH SET " + profile_data_query
+    query += "ON CREATE SET " + profile_data_query + place_data_query
+    query += "RETURN user.id as id"
+
     r = exe_query(query)
     return r
 
