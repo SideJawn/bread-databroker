@@ -169,6 +169,61 @@ def update_user_status(user_id = None):
 
     return r
 
+#Create a project
+@app.route('/project', methods=['PUT'])
+def create_project():
+    project = request.get_json()
+
+    if 'user_id' in project and project['user_id'] is not None:
+        user_id = project['user_id']
+    if 'display_name' in project and project['display_name'] is not None:
+        display_name = project['display_name']
+    if 'project_description' in project and project['project_description'] is not None:
+        project_description = project['project_description']
+    if 'created_ts' in project and project['created_ts'] is not None:
+        created_ts = project['created_ts'] 
+    if 'deadline_ts' in project and project['deadline_ts'] is not None:
+        deadline_ts = project['deadline_ts']
+    if 'category_id' in project and project['category_id'] is not None:
+        category_id = project['category_id']
+    if 'existing_contributors' in project and project['existing_contributors'] is not None:
+        existing_contributors = project['existing_contributors']
+    if 'recruiting_roles' in project and project['recruiting_roles'] is not None:
+        recruiting_roles = project['recruiting_roles']
+
+    query = "MATCH (user:User {id: '" + user_id + "'}), (category:Category {id: '" + category_id + "'}) CREATE (user)-[manages:MANAGE {role: 'OWNER'}]->(project:Project {id: apoc.create.uuid(), display_name: '" + display_name + "', status: 'N', is_flagged: 'F', flagged_reason: null, description: '" + project_description + "', created_ts: '" + created_ts + "', deadline_ts: '" + deadline_ts + "'})-[is:IS_CAT]->(category)"
+        
+    for recruit in recruiting_roles:
+        if 'role' in recruit and recruit['role'] is not None:
+            recruit_role = recruit['role']
+        if 'description' in recruit and recruit['description'] is not None:
+            recruit_description = recruit['description']
+        
+        query += ", (project)-[:NEED_CONTRIBUTOR]->(:Contributor {id: apoc.create.uuid(), role: '" + recruit_role + "', description: '" + recruit_description + "'}) "
+
+    for contributor in existing_contributors:
+        if 'role' in contributor and contributor['role'] is not None:
+            contributor_role = contributor['role']
+        if 'f_name' in contributor and contributor['f_name'] is not None:
+            f_name = contributor['f_name']
+        if 'l_name' in contributor and contributor['l_name'] is not None:
+            l_name = contributor['l_name']
+        if 'description' in contributor and contributor['description'] is not None:
+            role_description = contributor['description']
+        if 'user_id' in contributor and contributor['user_id'] is not None:
+            contributor_id = contributor['user_id']
+        
+        if 'contributor_id' in locals() and contributor_id is not None:
+            query += "WITH project MATCH (user:User {id: '" + contributor_id + "'}) CREATE (project)-[:HAS_CONTRIBUTOR]->(:Contributor {id: apoc.create.uuid(), role: '" + contributor_role + "', description: '" + role_description + "'})<-[:IS_CONTRIBUTOR]-(user)-[:CONTRIBUTES]->(project) "
+        else:
+            query += ", (project)-[:NEED_CONTRIBUTOR]->(:Contributor {id: apoc.create.uuid(), role: '" + contributor_role + "', display_name: '" + f_name + ' ' + l_name + "',description: '" + role_description + "'}) "
+    
+    query += "RETURN project"
+    r = exe_query(query)
+    return r
+
+
+
 def exe_query(query):
     r = {}
     try:
