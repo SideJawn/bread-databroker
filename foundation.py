@@ -97,6 +97,13 @@ def get_user_profile(user_id = None):
     r = exe_query(query)
     return r
 
+#Searches for basic user info by email
+@app.route('/user/<user_email>/basic', methods=['GET'])
+def get_user_basic(user_email = None):
+    query = "MATCH (user:User {email: '" + user_email + "'})-[has:HAS_AVATAR]->(avatar:Avatar) RETURN user.f_name as f_name, user.l_name as l_name, user.username as username, avatar.url as avatar"
+    r = exe_query(query)
+    return r
+
 ##Submits data to update the user profile
 @app.route('/user/<user_id>/profile', methods=['PUT'])
 def update_user_profile(user_id = None):
