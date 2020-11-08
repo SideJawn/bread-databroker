@@ -49,6 +49,13 @@ def get_projects():
 
     return response
 
+#Loads all category names
+@app.route('/categories', methods=['GET'])
+def get_categories():
+    query="MATCH (category:Category) RETURN category.display_name as display_name, category.id as id"
+    r = exe_query(query)
+    return r
+
 ##Creates a new user
 @app.route('/user', methods=['PUT'])
 def create_user():
