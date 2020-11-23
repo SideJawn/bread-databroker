@@ -216,6 +216,7 @@ def create_project():
         query += ", (project)-[:NEED_CONTRIBUTOR]->(:Contributor {id: apoc.create.uuid(), role: '" + recruit_role + "', description: '" + recruit_description + "'}) "
 
     for contributor in existing_contributors:
+        needed_by = ''
         if 'role' in contributor and contributor['role'] is not None:
             contributor_role = contributor['role']
         if 'f_name' in contributor and contributor['f_name'] is not None:
@@ -226,9 +227,11 @@ def create_project():
             role_description = contributor['description']
         if 'user_id' in contributor and contributor['user_id'] is not None:
             contributor_id = contributor['user_id']
+        if 'needed_by' in contributor and contributor['needed_by'] is not None:
+            needed_by = contributor['needed_by']
         
         if 'contributor_id' in locals() and contributor_id is not None:
-            query += "WITH project MATCH (user:User {id: '" + contributor_id + "'}) CREATE (project)-[:HAS_CONTRIBUTOR]->(:Contributor {id: apoc.create.uuid(), role: '" + contributor_role + "', description: '" + role_description + "'})<-[:IS_CONTRIBUTOR]-(user)-[:CONTRIBUTES]->(project) "
+            query += "WITH project MATCH (user:User {id: '" + contributor_id + "'}) CREATE (project)-[:NEED_CONTRIBUTOR {status: 'N', needed_by: '" + needed_by + "', user_id: '" + contributor_id + "'}]->(:Contributor {id: apoc.create.uuid(), role: '" + contributor_role + "', description: '" + role_description + "'})<-[:IS_CONTRIBUTOR]-(user) "
         else:
             query += ", (project)-[:NEED_CONTRIBUTOR]->(:Contributor {id: apoc.create.uuid(), role: '" + contributor_role + "', display_name: '" + f_name + ' ' + l_name + "',description: '" + role_description + "'}) "
     
@@ -236,7 +239,49 @@ def create_project():
     r = exe_query(query)
     return r
 
+#Updates project general info
+@app.route('/project/<project_id>', methods=['PUT'])
+def update_project(project_id = None):
+    project = request.get_json()
 
+    if project_id is not None:
+        query = "MATCH (project:Project {id: '" + project_id + "'})"
+        category_id_exists = False
+        if 'category_id' in project and project['category_id'] is not None:
+            category_id_exists = True
+            category_id = project['category_id']
+            query += "-[is_cat:IS_CAT]->(current_category:Category), (new_category:Category {id: '" + category_id + "'}) MERGE (project)-[:IS_CAT]->(new_category) "
+        else:
+            query += " "
+        if 'display_name' in project and project['display_name'] is not None:
+            display_name = project['display_name']
+            query += "SET project.display_name = '" + display_name + "' "
+        if 'project_description' in project and project['project_description'] is not None:
+            project_description = project['project_description']
+            query += "SET project.description = '" + project_description + "' "
+        if 'deadline_ts' in project and project['deadline_ts'] is not None:
+            deadline_ts = project['deadline_ts']
+            query += "SET project.deadline_ts = '" + deadline_ts + "' "
+        if 'status' in project and project['status'] is not None:
+            status = project['status']
+            query += "SET project.status = '" + status + "' "
+        if 'user_id' in project and project['user_id'] is not None:
+            user_id = project['user_id']
+            query += "with project"
+            if category_id_exists is True:
+                query += ", is_cat"
+            query += " Match (old_owner:User)-[manage:MANAGE]->(project), (new_owner:User {id: '" + user_id + "'}) CREATE (new_owner)-[:MANAGE]->(project) DELETE manage"
+            if category_id_exists is True:
+                query += ", is_cat"
+        if category_id_exists is True and 'user_id' not in locals():
+            query += "DELETE is_cat"
+        
+        query += " RETURN NULL"
+        response = exe_query(query)
+    else:
+        return { 'status_code': 'Bad request' }
+    
+    return response
 
 def exe_query(query):
     r = {}
@@ -248,10 +293,15 @@ def exe_query(query):
                 ## if a record is there (by peeking), process results
                 if results.peek() is not None:
                     sorted_results = [record for record in results.data()]
-                    r = {
+                    if 'NULL' in sorted_results[0]:
+                        r = {
                         'status_code': 'OK',
-                        'results': sorted_results
                     }
+                    else:
+                        r = {
+                            'status_code': 'OK',
+                            'results': sorted_results
+                        }
                 else:
                     r = { 'status_code': 'ERR_NOT_FOUND' }
     except neo4j.exceptions.ServiceUnavailable as err:
