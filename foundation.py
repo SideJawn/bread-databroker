@@ -187,6 +187,8 @@ def update_user_status(user_id = None):
 @app.route('/project', methods=['PUT'])
 def create_project():
     project = request.get_json()
+    add_existing_contributors = False
+    add_recruits = False
 
     if 'user_id' in project and project['user_id'] is not None:
         user_id = project['user_id']
@@ -202,40 +204,44 @@ def create_project():
         category_id = project['category_id']
     if 'existing_contributors' in project and project['existing_contributors'] is not None:
         existing_contributors = project['existing_contributors']
+        add_existing_contributors == True
     if 'recruiting_roles' in project and project['recruiting_roles'] is not None:
         recruiting_roles = project['recruiting_roles']
+        add_recruits == True
 
     query = "MATCH (user:User {id: '" + user_id + "'}), (category:Category {id: '" + category_id + "'}) CREATE (user)-[manages:MANAGE {role: 'OWNER'}]->(project:Project {id: apoc.create.uuid(), display_name: '" + display_name + "', status: 'N', is_flagged: 'F', flagged_reason: null, description: '" + project_description + "', created_ts: '" + created_ts + "', deadline_ts: '" + deadline_ts + "'})-[is:IS_CAT]->(category)"
         
-    for recruit in recruiting_roles:
-        if 'role' in recruit and recruit['role'] is not None:
-            recruit_role = recruit['role']
-        if 'description' in recruit and recruit['description'] is not None:
-            recruit_description = recruit['description']
-        
-        query += ", (project)-[:NEED_CONTRIBUTOR]->(:Contributor {id: apoc.create.uuid(), role: '" + recruit_role + "', description: '" + recruit_description + "'}) "
+    if add_recruits is True:
+        for recruit in recruiting_roles:
+            if 'role' in recruit and recruit['role'] is not None:
+                recruit_role = recruit['role']
+            if 'description' in recruit and recruit['description'] is not None:
+                recruit_description = recruit['description']
+            
+            query += ", (project)-[:NEED_CONTRIBUTOR]->(:Contributor {id: apoc.create.uuid(), role: '" + recruit_role + "', description: '" + recruit_description + "'}) "
 
-    for contributor in existing_contributors:
-        needed_by = ''
-        if 'role' in contributor and contributor['role'] is not None:
-            contributor_role = contributor['role']
-        if 'f_name' in contributor and contributor['f_name'] is not None:
-            f_name = contributor['f_name']
-        if 'l_name' in contributor and contributor['l_name'] is not None:
-            l_name = contributor['l_name']
-        if 'description' in contributor and contributor['description'] is not None:
-            role_description = contributor['description']
-        if 'user_id' in contributor and contributor['user_id'] is not None:
-            contributor_id = contributor['user_id']
-        if 'needed_by' in contributor and contributor['needed_by'] is not None:
-            needed_by = contributor['needed_by']
-        
-        if 'contributor_id' in locals() and contributor_id is not None:
-            query += "WITH project MATCH (user:User {id: '" + contributor_id + "'}) CREATE (project)-[:NEED_CONTRIBUTOR {status: 'N', needed_by: '" + needed_by + "', user_id: '" + contributor_id + "'}]->(:Contributor {id: apoc.create.uuid(), role: '" + contributor_role + "', description: '" + role_description + "'})<-[:IS_CONTRIBUTOR]-(user) "
-        else:
-            query += ", (project)-[:NEED_CONTRIBUTOR]->(:Contributor {id: apoc.create.uuid(), role: '" + contributor_role + "', display_name: '" + f_name + ' ' + l_name + "',description: '" + role_description + "'}) "
+    if add_existing_contributors is True:
+        for contributor in existing_contributors:
+            needed_by = ''
+            if 'role' in contributor and contributor['role'] is not None:
+                contributor_role = contributor['role']
+            if 'f_name' in contributor and contributor['f_name'] is not None:
+                f_name = contributor['f_name']
+            if 'l_name' in contributor and contributor['l_name'] is not None:
+                l_name = contributor['l_name']
+            if 'description' in contributor and contributor['description'] is not None:
+                role_description = contributor['description']
+            if 'user_id' in contributor and contributor['user_id'] is not None:
+                contributor_id = contributor['user_id']
+            if 'needed_by' in contributor and contributor['needed_by'] is not None:
+                needed_by = contributor['needed_by']
+            
+            if 'contributor_id' in locals() and contributor_id is not None:
+                query += "WITH project MATCH (user:User {id: '" + contributor_id + "'}) CREATE (project)-[:NEED_CONTRIBUTOR {status: 'N', needed_by: '" + needed_by + "', user_id: '" + contributor_id + "'}]->(:Contributor {id: apoc.create.uuid(), role: '" + contributor_role + "', description: '" + role_description + "'})<-[:IS_CONTRIBUTOR]-(user) "
+            else:
+                query += ", (project)-[:NEED_CONTRIBUTOR]->(:Contributor {id: apoc.create.uuid(), role: '" + contributor_role + "', display_name: '" + f_name + ' ' + l_name + "',description: '" + role_description + "'}) "
     
-    query += "RETURN project"
+    query += "RETURN NULL"
     r = exe_query(query)
     return r
 
@@ -281,6 +287,62 @@ def update_project(project_id = None):
     else:
         return { 'status_code': 'Bad request' }
     
+    return response
+
+#Adds existing and recruiting contributors to project
+@app.route('/project/<project_id>/contributors', methods=['PUT'])
+def add_project_contributors(project_id = None):
+    contributors = request.get_json()
+    add_existing_contributors = False
+    add_recruits = False
+
+    if project_id is not None:
+        query = "MATCH (project:Project {id: '" + project_id + "'}) "
+        if 'existing_contributors' in contributors and contributors['existing_contributors'] is not None:
+            existing_contributors = contributors['existing_contributors']
+            add_existing_contributors = True
+        if 'recruiting_roles' in contributors and contributors['recruiting_roles'] is not None:
+            recruiting_roles = contributors['recruiting_roles']
+            add_recruits = True
+    
+        if add_recruits is True:
+            for recruit in recruiting_roles:
+                if 'role' in recruit and recruit['role'] is not None:
+                    recruit_role = recruit['role']
+                if 'description' in recruit and recruit['description'] is not None:
+                    recruit_description = recruit['description']
+                
+                query += "WITH project CREATE (project)-[:NEED_CONTRIBUTOR]->(:Contributor {id: apoc.create.uuid(), role: '" + recruit_role + "', description: '" + recruit_description + "'}) "
+
+        if add_existing_contributors is True:
+            for contributor in existing_contributors:
+                needed_by = ''
+                if 'role' in contributor and contributor['role'] is not None:
+                    contributor_role = contributor['role']
+                if 'f_name' in contributor and contributor['f_name'] is not None:
+                    f_name = contributor['f_name']
+                if 'l_name' in contributor and contributor['l_name'] is not None:
+                    l_name = contributor['l_name']
+                if 'description' in contributor and contributor['description'] is not None:
+                    role_description = contributor['description']
+                if 'user_id' in contributor and contributor['user_id'] is not None:
+                    contributor_id = contributor['user_id']
+                if 'needed_by' in contributor and contributor['needed_by'] is not None:
+                    needed_by = contributor['needed_by']
+                
+                if 'contributor_id' in locals() and contributor_id is not None:
+                    query += "WITH project MATCH (user:User {id: '" + contributor_id + "'}) CREATE (project)-[:NEED_CONTRIBUTOR {status: 'N', needed_by: '" + needed_by + "', user_id: '" + contributor_id + "'}]->(:Contributor {id: apoc.create.uuid(), role: '" + contributor_role + "', description: '" + role_description + "'})<-[:IS_CONTRIBUTOR]-(user) "
+                else:
+                    query += "WITH project CREATE (project)-[:NEED_CONTRIBUTOR {status: 'N', needed_by: '" + needed_by + "'}]->(:Contributor {id: apoc.create.uuid(), role: '" + contributor_role + "', display_name: '" + f_name + ' ' + l_name + "',description: '" + role_description + "'}) "
+        
+        if add_recruits is False and add_existing_contributors is False:
+            return { 'status_code': 'Bad request' }
+        
+        query += "RETURN NULL"
+        response = exe_query(query)
+    else:
+        return { 'status_code': 'Bad request' }
+
     return response
 
 def exe_query(query):
