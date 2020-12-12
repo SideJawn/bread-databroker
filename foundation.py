@@ -289,14 +289,28 @@ def update_project(project_id = None):
     
     return response
 
-#Adds existing and recruiting contributors to project
+#Updates project contributors
 @app.route('/project/<project_id>/contributors', methods=['PUT'])
-def add_project_contributors(project_id = None):
-    contributors = request.get_json()
+def update_project_contributors(project_id = None):
+    updates = request.get_json()
+    add_contributors = False
+    remove_contributors = False
+
+    if 'add_contributors' in updates and 'add_contributors' is not None:
+        add_contributors = updates['add_contributors']
+        add_respone = add_project_contributors(project_id, add_contributors)
+    
+    if add_respone['status_code'] == 'OK':
+        return add_respone
+    else:
+        return {'status_code' : 'Internal Error'}
+
+
+def add_project_contributors(project_id, contributors):
     add_existing_contributors = False
     add_recruits = False
 
-    if project_id is not None:
+    if project_id is not None and contributors is not None:
         query = "MATCH (project:Project {id: '" + project_id + "'}) "
         if 'existing_contributors' in contributors and contributors['existing_contributors'] is not None:
             existing_contributors = contributors['existing_contributors']
@@ -377,8 +391,8 @@ def exe_query(query):
                     sorted_results = [record for record in results.data()]
                     if 'NULL' in sorted_results[0]:
                         r = {
-                        'status_code': 'OK',
-                    }
+                            'status_code': 'OK',
+                        }
                     else:
                         r = {
                             'status_code': 'OK',
