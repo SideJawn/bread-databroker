@@ -80,7 +80,7 @@ def create_user():
         if zipcode is None:
             zipcode = ''
         if username or hashed_pass or salt or f_name or l_name or email or description or dob or city or province or last_logged_in_ts or member_since_ts or avatar is not None:
-            query = "MATCH (country:Country {id: '51438616-9ee6-4dd8-bc57-6a65c4e90bdf'}) MERGE (place:Place {city: '" + city + "', province_dn: '" + province + "', zipcode: '" + zipcode + "'})-[:LOCATED_IN]->(country) ON CREATE SET place.zipcode = '" + zipcode + "', place.id = apoc.create.uuid() CREATE (user:User {id: apoc.create.uuid(), username: '" + username + "', password: '" + hashed_pass + "', salt: '" + salt + "', f_name: '" + f_name + "', l_name: '" + l_name + "', status: 'A', email: '" + email + "', description: '" + description + "', dob: '"+ dob + "', last_logged_in_ts: '" + last_logged_in_ts +"', member_since_ts: '" + member_since_ts +"'})-[resides:RESIDE_IN]->(place), (user)-[has:HAS_AVATAR]->(avatar:Avatar {id: apoc.create.uuid(), url: '" + avatar + "', display_name: '" + username + "'}) RETURN user"
+            query = "MATCH (country:Country {id: '51438616-9ee6-4dd8-bc57-6a65c4e90bdf'}) MERGE (place:Place {city: '" + city + "', province_dn: '" + province + "', zipcode: '" + zipcode + "'})-[:LOCATED_IN]->(country) ON CREATE SET place.zipcode = '" + zipcode + "', place.id = apoc.create.uuid() CREATE (user:User {id: apoc.create.uuid(), username: '" + username + "', password: '" + hashed_pass + "', salt: '" + salt + "', f_name: '" + f_name + "', l_name: '" + l_name + "', status: 'A', email: '" + email + "', description: '" + description + "', dob: '"+ dob + "', last_logged_in_ts: '" + last_logged_in_ts +"', member_since_ts: '" + member_since_ts +"'})-[resides:RESIDE_IN]->(place), (user)-[has:HAS_AVATAR]->(avatar:Avatar {id: apoc.create.uuid(), url: '" + avatar + "', display_name: '" + username + "'}) RETURN NULL"
             r = exe_query(query)
             response = parse_put(r)
         else:
@@ -307,33 +307,53 @@ def add_project_contributors(project_id = None):
     
         if add_recruits is True:
             for recruit in recruiting_roles:
-                if 'role' in recruit and recruit['role'] is not None:
-                    recruit_role = recruit['role']
-                if 'description' in recruit and recruit['description'] is not None:
-                    recruit_description = recruit['description']
-                
-                query += "WITH project CREATE (project)-[:NEED_CONTRIBUTOR]->(:Contributor {id: apoc.create.uuid(), role: '" + recruit_role + "', description: '" + recruit_description + "'}) "
+                needed_by = ''
+                if 'needed_by' in recruit and recruit['needed_by'] is not None:
+                    needed_by = recruit['needed_by']
+                if 'contributor_id' in recruit and recruit['contributor_id'] is not None:
+                    default_contributor_id = recruit['contributor_id']
+                    query += "WITH project MATCH (contributor:Contributor {id: '" + default_contributor_id + "'}) CREATE (project)-[:NEED_CONTRIBUTOR]->(contributor) "
+                else:
+                    if 'role' in recruit and recruit['role'] is not None:
+                        recruit_role = recruit['role']
+                    if 'description' in recruit and recruit['description'] is not None:
+                        recruit_description = recruit['description']
+                    query += "WITH project CREATE (project)-[:NEED_CONTRIBUTOR {needed_by: '" + needed_by + "'}]->(:Contributor {id: apoc.create.uuid(), role: '" + recruit_role + "', description: '" + recruit_description + "'}) "
 
         if add_existing_contributors is True:
             for contributor in existing_contributors:
                 needed_by = ''
+                use_default_contributor = False
                 if 'role' in contributor and contributor['role'] is not None:
                     contributor_role = contributor['role']
+                if 'description' in contributor and contributor['description'] is not None:
+                    role_description = contributor['description']
+                if 'user_id' in contributor and contributor['user_id'] is not None:
+                    user_id = contributor['user_id']
                 if 'f_name' in contributor and contributor['f_name'] is not None:
                     f_name = contributor['f_name']
                 if 'l_name' in contributor and contributor['l_name'] is not None:
                     l_name = contributor['l_name']
-                if 'description' in contributor and contributor['description'] is not None:
-                    role_description = contributor['description']
-                if 'user_id' in contributor and contributor['user_id'] is not None:
-                    contributor_id = contributor['user_id']
+                if 'email' in contributor and contributor['email'] is not None:
+                    email = contributor['email']
                 if 'needed_by' in contributor and contributor['needed_by'] is not None:
                     needed_by = contributor['needed_by']
-                
-                if 'contributor_id' in locals() and contributor_id is not None:
-                    query += "WITH project MATCH (user:User {id: '" + contributor_id + "'}) CREATE (project)-[:NEED_CONTRIBUTOR {status: 'N', needed_by: '" + needed_by + "', user_id: '" + contributor_id + "'}]->(:Contributor {id: apoc.create.uuid(), role: '" + contributor_role + "', description: '" + role_description + "'})<-[:IS_CONTRIBUTOR]-(user) "
+                if 'contributor_id' in contributor and contributor['contributor_id'] is not None:
+                    default_contributor_id = contributor['contributor_id']
+                    use_default_contributor = True
+
+                if 'user_id' in locals() and user_id is not None:
+                    if use_default_contributor is True:
+                        query += "WITH project MATCH (user:User {id: '" + user_id + "'}), (contributor:Contributor {id: '" + default_contributor_id + "'}) CREATE (project)-[:NEED_CONTRIBUTOR {status: 'N', needed_by: '" + needed_by + "', user_id: '" + user_id + "'}]->(contributor)<-[:IS_CONTRIBUTOR]-(user) "
+                    else:
+                        query += "WITH project MATCH (user:User {id: '" + user_id + "'}) CREATE (project)-[:NEED_CONTRIBUTOR {status: 'N', needed_by: '" + needed_by + "', user_id: '" + user_id + "'}]->(:Contributor {id: apoc.create.uuid(), role: '" + contributor_role + "', description: '" + role_description + "'})<-[:IS_CONTRIBUTOR]-(user) "
+                elif 'f_name' in locals() and f_name is not None and 'l_name' in locals() and l_name is not None and 'email' in locals() and email is not None:
+                    if use_default_contributor is True:
+                        query += "WITH project MATCH (contributor:Contributor {id: '" + default_contributor_id + "'}) CREATE (project)-[:NEED_CONTRIBUTOR {status: 'N', needed_by: '" + needed_by + "', email: '" + email + "'}]->(contributor)<-[:IS_CONTRIBUTOR]-(user:User {id: apoc.create.uuid(), f_name: '" + f_name + "', l_name: '" + l_name + "', email: '" + email + "', status: 'T'}) "
+                    else:
+                        query += "WITH project CREATE (project)-[:NEED_CONTRIBUTOR {status: 'N', needed_by: '" + needed_by + "', email: '" + email + "'}]->(:Contributor {id: apoc.create.uuid(), role: '" + contributor_role + "', description: '" + role_description + "'})<-[:IS_CONTRIBUTOR]-(user:User {id: apoc.create.uuid(), f_name: '" + f_name + "', l_name: '" + l_name + "', email: '" + email + "', status: 'T'}) "
                 else:
-                    query += "WITH project CREATE (project)-[:NEED_CONTRIBUTOR {status: 'N', needed_by: '" + needed_by + "'}]->(:Contributor {id: apoc.create.uuid(), role: '" + contributor_role + "', display_name: '" + f_name + ' ' + l_name + "',description: '" + role_description + "'}) "
+                    return { 'status_code': 'Bad request' }   
         
         if add_recruits is False and add_existing_contributors is False:
             return { 'status_code': 'Bad request' }
