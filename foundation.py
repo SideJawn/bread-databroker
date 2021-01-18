@@ -204,10 +204,10 @@ def create_project():
         category_id = project['category_id']
     if 'existing_contributors' in project and project['existing_contributors'] is not None:
         existing_contributors = project['existing_contributors']
-        add_existing_contributors == True
+        add_existing_contributors = True
     if 'recruiting_roles' in project and project['recruiting_roles'] is not None:
         recruiting_roles = project['recruiting_roles']
-        add_recruits == True
+        add_recruits = True
 
     query = "MATCH (user:User {id: '" + user_id + "'}), (category:Category {id: '" + category_id + "'}) CREATE (user)-[manages:MANAGE {role: 'OWNER'}]->(project:Project {id: apoc.create.uuid(), display_name: '" + display_name + "', status: 'N', is_flagged: 'F', flagged_reason: null, description: '" + project_description + "', created_ts: '" + created_ts + "', deadline_ts: '" + deadline_ts + "'})-[is:IS_CAT]->(category)"
         
@@ -293,18 +293,22 @@ def update_project(project_id = None):
 @app.route('/project/<project_id>/contributors', methods=['PUT'])
 def update_project_contributors(project_id = None):
     updates = request.get_json()
-    add_contributors = False
-    remove_contributors = False
+    add_contributors = None
+    remove_contributors = None
+    add_response = {}
+    remove_response = {}
 
-    if 'add_contributors' in updates and 'add_contributors' is not None:
+    if 'add_contributors' in updates and updates['add_contributors'] is not None:
         add_contributors = updates['add_contributors']
-        add_respone = add_project_contributors(project_id, add_contributors)
+        add_response = add_project_contributors(project_id, add_contributors)
+    # if 'remove_contributors' in updates and 'remove_contributors' is not None:
+    #     remove_contributors = updates['remove_contributors']
+    #     remove_response = remove_project_contributors(project_id, remove_contributors)
     
-    if add_respone['status_code'] == 'OK':
-        return add_respone
+    if ('status_code' in add_response and add_response['status_code'] == 'OK') or ('status_code' in remove_response and remove_response['status_code'] == 'OK'):
+        return {'status_code' : 'OK'}
     else:
         return {'status_code' : 'Internal Error'}
-
 
 def add_project_contributors(project_id, contributors):
     add_existing_contributors = False
@@ -378,6 +382,18 @@ def add_project_contributors(project_id, contributors):
         return { 'status_code': 'Bad request' }
 
     return response
+
+# def remove_contributors(project_id, contributors):
+#     if project_id is not None and contributors is not None:
+#         query = "MATCH (project:Project {id: '" + project_id + "'})-[needs:NEED_CONTRIBUTOR]->(contributor:Contributor) with contributor OPTIONAL MATCH (contributor)<-[is:IS_CONTRIBUTOR]-(user:User) "
+
+#         for contributor in contributors:
+#             if 'id' in contributor and contributor['id'] is not None:
+#                 contributor_id = contributor['id']
+#                 query += "WHERE contributor.id = " + contributor_id + " DELETE needs"
+    
+#     return ''
+
 
 def exe_query(query):
     r = {}
