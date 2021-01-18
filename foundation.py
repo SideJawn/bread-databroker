@@ -301,9 +301,9 @@ def update_project_contributors(project_id = None):
     if 'add_contributors' in updates and updates['add_contributors'] is not None:
         add_contributors = updates['add_contributors']
         add_response = add_project_contributors(project_id, add_contributors)
-    # if 'remove_contributors' in updates and 'remove_contributors' is not None:
-    #     remove_contributors = updates['remove_contributors']
-    #     remove_response = remove_project_contributors(project_id, remove_contributors)
+    if 'remove_contributors' in updates and 'remove_contributors' is not None:
+        remove_contributors = updates['remove_contributors']
+        remove_response = remove_project_contributors(project_id, remove_contributors)
     
     if ('status_code' in add_response and add_response['status_code'] == 'OK') or ('status_code' in remove_response and remove_response['status_code'] == 'OK'):
         return {'status_code' : 'OK'}
@@ -341,7 +341,7 @@ def add_project_contributors(project_id, contributors):
         if add_existing_contributors is True:
             for contributor in existing_contributors:
                 needed_by = ''
-                use_default_contributor = False
+                existing_contributor_template = False
                 if 'role' in contributor and contributor['role'] is not None:
                     contributor_role = contributor['role']
                 if 'description' in contributor and contributor['description'] is not None:
@@ -358,15 +358,15 @@ def add_project_contributors(project_id, contributors):
                     needed_by = contributor['needed_by']
                 if 'contributor_id' in contributor and contributor['contributor_id'] is not None:
                     default_contributor_id = contributor['contributor_id']
-                    use_default_contributor = True
+                    existing_contributor_template = True
 
                 if 'user_id' in locals() and user_id is not None:
-                    if use_default_contributor is True:
+                    if existing_contributor_template is True:
                         query += "WITH project MATCH (user:User {id: '" + user_id + "'}), (contributor:Contributor {id: '" + default_contributor_id + "'}) CREATE (project)-[:NEED_CONTRIBUTOR {status: 'N', needed_by: '" + needed_by + "', user_id: '" + user_id + "'}]->(contributor)<-[:IS_CONTRIBUTOR]-(user) "
                     else:
                         query += "WITH project MATCH (user:User {id: '" + user_id + "'}) CREATE (project)-[:NEED_CONTRIBUTOR {status: 'N', needed_by: '" + needed_by + "', user_id: '" + user_id + "'}]->(:Contributor {id: apoc.create.uuid(), role: '" + contributor_role + "', description: '" + role_description + "'})<-[:IS_CONTRIBUTOR]-(user) "
                 elif 'f_name' in locals() and f_name is not None and 'l_name' in locals() and l_name is not None and 'email' in locals() and email is not None:
-                    if use_default_contributor is True:
+                    if existing_contributor_template is True:
                         query += "WITH project MATCH (contributor:Contributor {id: '" + default_contributor_id + "'}) CREATE (project)-[:NEED_CONTRIBUTOR {status: 'N', needed_by: '" + needed_by + "', email: '" + email + "'}]->(contributor)<-[:IS_CONTRIBUTOR]-(user:User {id: apoc.create.uuid(), f_name: '" + f_name + "', l_name: '" + l_name + "', email: '" + email + "', status: 'T'}) "
                     else:
                         query += "WITH project CREATE (project)-[:NEED_CONTRIBUTOR {status: 'N', needed_by: '" + needed_by + "', email: '" + email + "'}]->(:Contributor {id: apoc.create.uuid(), role: '" + contributor_role + "', description: '" + role_description + "'})<-[:IS_CONTRIBUTOR]-(user:User {id: apoc.create.uuid(), f_name: '" + f_name + "', l_name: '" + l_name + "', email: '" + email + "', status: 'T'}) "
@@ -383,16 +383,21 @@ def add_project_contributors(project_id, contributors):
 
     return response
 
-# def remove_contributors(project_id, contributors):
-#     if project_id is not None and contributors is not None:
-#         query = "MATCH (project:Project {id: '" + project_id + "'})-[needs:NEED_CONTRIBUTOR]->(contributor:Contributor) with contributor OPTIONAL MATCH (contributor)<-[is:IS_CONTRIBUTOR]-(user:User) "
+def remove_project_contributors(project_id, contributors):
+    if project_id is not None and contributors is not None:
+        query = "MATCH (project:Project {id: '" + project_id + "'})-[needs:NEED_CONTRIBUTOR]->(contributor:Contributor) WHERE contributor.id IN ["
 
-#         for contributor in contributors:
-#             if 'id' in contributor and contributor['id'] is not None:
-#                 contributor_id = contributor['id']
-#                 query += "WHERE contributor.id = " + contributor_id + " DELETE needs"
+        for count, contributor in enumerate(contributors):
+            if 'id' in contributor and contributor['id'] is not None:
+                query += "'" + contributor['id'] + "'"
+                if count != (len(contributors)-1):
+                    query += ", "
+        query += '] with needs, contributor OPTIONAL MATCH (contributor)<-[is:IS_CONTRIBUTOR]-(user:User) DELETE needs, is RETURN NULL'
+        response = exe_query(query)
+    else:
+        return { 'status_code': 'Bad request' }
     
-#     return ''
+    return response
 
 
 def exe_query(query):
